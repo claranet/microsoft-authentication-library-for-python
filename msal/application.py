@@ -852,7 +852,8 @@ class ClientApplication(object):
             port=None,
             prompt=None,
             domain_hint=None,  # type: Optional[str]
-            claims_challenge=None):
+            claims_challenge=None,
+            ):
         if not port:
             port = _get_open_port()
         request_state = str(uuid.uuid4())

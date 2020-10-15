@@ -309,8 +309,6 @@ class ClientApplication(object):
             nonce=None,
             domain_hint=None,  # type: Optional[str]
             claims_challenge=None,
-            code_challenge_method=None,
-            code_challenge=None,
             **kwargs):
         """Constructs a URL for you to start a Authorization Code Grant.
 
@@ -383,8 +381,6 @@ class ClientApplication(object):
             domain_hint=domain_hint,
             claims=_merge_claims_challenge_and_capabilities(
                 self._client_capabilities, claims_challenge),
-            code_challenge=code_challenge,
-            code_challenge_method=code_challenge_method
             )
 
     def acquire_token_by_authorization_code(
@@ -397,7 +393,6 @@ class ClientApplication(object):
                 # values MUST be identical.
             nonce=None,
             claims_challenge=None,
-            code_verifier=None,
             **kwargs):
         """The second half of the Authorization Code Grant.
 
@@ -452,8 +447,7 @@ class ClientApplication(object):
             data=dict(
                 kwargs.pop("data", {}),
                 claims=_merge_claims_challenge_and_capabilities(
-                    self._client_capabilities, claims_challenge),
-                code_verifier=code_verifier),
+                    self._client_capabilities, claims_challenge)),
             nonce=nonce,
             **kwargs)
 
@@ -857,18 +851,12 @@ class ClientApplication(object):
         if not port:
             port = _get_open_port()
         request_state = str(uuid.uuid4())
-        random_bytes = os.urandom(32)
-        code_verifier = (base64.urlsafe_b64encode(random_bytes).rstrip(b'=')).decode('ascii')
-        challenge_bytes = hashlib.sha256(code_verifier.encode('ascii')).digest()
-        code_challenge = base64.urlsafe_b64encode(challenge_bytes).rstrip(b'=').decode('ascii')
         auth_url = self.get_authorization_request_url(
             scopes=scopes,
             login_hint=login_hint,
             redirect_uri="http://localhost:%d" % port,
             response_type="code",
             state=request_state,
-            code_challenge=code_challenge,
-            code_challenge_method="S256",
             prompt=prompt,
             domain_hint=domain_hint,
             claims_challenge=claims_challenge,)
@@ -876,8 +864,8 @@ class ClientApplication(object):
         if request_state != received_state:
             raise ValueError("State does not match")
         return self.acquire_token_by_authorization_code(
-            auth_code, scopes, redirect_uri=redirect_uri,
-            claims_challenge=claims_challenge, code_verifier=code_verifier)
+            auth_code, scopes, redirect_uri="http://localhost:%d" %port,
+            claims_challenge=claims_challenge)
 
 
 class PublicClientApplication(ClientApplication):  # browser app or mobile app

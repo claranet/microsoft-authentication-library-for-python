@@ -1,8 +1,5 @@
-import base64
 import functools
-import hashlib
 import json
-import os
 import time
 
 from msal.oauth2cli.authcode import obtain_auth_code

@@ -847,21 +847,24 @@ class ClientApplication(object):
             ):
         if not port:
             port = _get_open_port()
+        redirect_uri = "http://localhost:%d" % port
         request_state = str(uuid.uuid4())
         auth_url = self.get_authorization_request_url(
             scopes=scopes,
             login_hint=login_hint,
-            redirect_uri="http://localhost:%d" % port,
+            redirect_uri=redirect_uri,
             response_type="code",
             state=request_state,
             prompt=prompt,
             domain_hint=domain_hint,
             claims_challenge=claims_challenge,)
-        auth_code, received_state = obtain_auth_code(port, auth_uri=auth_url)
-        if request_state != received_state:
-            raise ValueError("State does not match")
+        auth_code, state = obtain_auth_code(port, auth_uri=auth_url)
+        if not auth_code:
+            raise TimeoutError("Server timed out")
+        if request_state != state:
+            return ValueError("State does not match")
         return self.acquire_token_by_authorization_code(
-            auth_code, scopes, redirect_uri="http://localhost:%d" %port,
+            auth_code, scopes, redirect_uri=redirect_uri,
             claims_challenge=claims_challenge)
 
 

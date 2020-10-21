@@ -36,25 +36,11 @@ def obtain_auth_code(listen_port, auth_uri=None):
     :param auth_uri: If provided, this function will try to open a local browser.
     :return: Hang indefinitely, until it receives and then return the auth code.
     """
-    exit_hint = "Visit http://localhost:{p}?code=exit to abort".format(p=listen_port)
-    logger.warning(exit_hint)
     if auth_uri:
-        page = "http://localhost:{p}?{q}".format(p=listen_port, q=urlencode({
-            "text": "Open this link to sign in. You may use incognito window",
-            "link": auth_uri,
-            "exit_hint": exit_hint,
-            }))
         browse(auth_uri)
-    server = HTTPServer(("", int(listen_port)), AuthCodeReceiver)
-    try:
-        server.authcode = None
-        while not server.authcode:
-            # Derived from
-            # https://docs.python.org/2/library/basehttpserver.html#more-examples
-            server.handle_request()
-        return server.authcode, server.state
-    finally:
-        server.server_close()
+    server = AuthcodeRedirectServer(int(listen_port))
+    return server.get_auth_code()
+
 
 def browse(auth_uri):
     controller = webbrowser.get()  # Get a default controller
@@ -69,15 +55,16 @@ def browse(auth_uri):
     logger.info("Please open a browser on THIS device to visit: %s" % auth_uri)
     controller.open(auth_uri)
 
+
 class AuthCodeReceiver(BaseHTTPRequestHandler):
     def do_GET(self):
         # For flexibility, we choose to not check self.path matching redirect_uri
         #assert self.path.startswith('/THE_PATH_REGISTERED_BY_THE_APP')
         qs = parse_qs(urlparse(self.path).query)
         if qs.get('code'):  # Then store it into the server instance
-            ac = self.server.authcode = qs['code'][0]
-            self.server.state = qs['state'][0]
-            self._send_full_response('Authcode:\n{}'.format(ac)) #This is where the exit message will go
+            self.server.auth_code = qs['code'][0]
+            self.server.state = qs.get('state', [None])[0]
+            self._send_full_response('Authentication complete. You can close this window')
             # NOTE: Don't do self.server.shutdown() here. It'll halt the server.
         elif qs.get('text') and qs.get('link'):  # Then display a landing page
             self._send_full_response(
@@ -95,6 +82,32 @@ class AuthCodeReceiver(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body.encode("utf-8"))
 
+
+class AuthcodeRedirectServer(HTTPServer):
+
+    def __init__(self, port):
+        HTTPServer.__init__(self, ("", port), AuthCodeReceiver)
+        self.state = None
+        self.auth_code = None
+        self.timeout = 300
+
+    def get_auth_code(self):
+        try:
+            while not self.auth_code:
+                try:
+                    # Derived from
+                    # https://docs.python.org/2/library/basehttpserver.html#more-examples
+                    self.handle_request()
+                except ValueError:
+                    break
+        finally:
+            self.server_close()
+
+        return self.auth_code, self.state
+
+    def handle_timeout(self):
+        """Break the request-handling loop by tearing down the server"""
+        self.server_close()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

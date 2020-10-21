@@ -845,8 +845,7 @@ class ClientApplication(object):
             domain_hint=None,  # type: Optional[str]
             claims_challenge=None,
             ):
-        if not port:
-            port = _get_open_port()
+        _port = port or _get_open_port()
         redirect_uri = "http://localhost:%d" % port
         request_state = str(uuid.uuid4())
         auth_url = self.get_authorization_request_url(
@@ -858,7 +857,7 @@ class ClientApplication(object):
             prompt=prompt,
             domain_hint=domain_hint,
             claims_challenge=claims_challenge,)
-        auth_code, state = obtain_auth_code(port, auth_uri=auth_url)
+        auth_code, state = obtain_auth_code(_port, auth_uri=auth_url)
         if not auth_code:
             raise TimeoutError("Server timed out")
         if request_state != state:

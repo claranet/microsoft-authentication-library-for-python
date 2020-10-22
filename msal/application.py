@@ -846,7 +846,7 @@ class ClientApplication(object):
             claims_challenge=None,
             ):
         _port = port or _get_open_port()
-        redirect_uri = "http://localhost:%d" % port
+        redirect_uri = "http://localhost:%d" % _port
         request_state = str(uuid.uuid4())
         auth_url = self.get_authorization_request_url(
             scopes=scopes,

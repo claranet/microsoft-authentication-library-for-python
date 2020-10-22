@@ -856,7 +856,8 @@ class ClientApplication(object):
             state=request_state,
             prompt=prompt,
             domain_hint=domain_hint,
-            claims_challenge=claims_challenge,)
+            claims_challenge=claims_challenge,
+            )
         auth_code, state = obtain_auth_code(_port, auth_uri=auth_url)
         if not auth_code:
             raise TimeoutError("Server timed out")

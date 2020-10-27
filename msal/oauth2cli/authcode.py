@@ -109,9 +109,7 @@ class AuthcodeRedirectServer(HTTPServer):
                     # Derived from
                     # https://docs.python.org/2/library/basehttpserver.html#more-examples
                     self.handle_request()
-                except ValueError:
-                    break
-                except IOError:  # Python 2 throws an IOError handle timeout closes server
+                except (IOError, ValueError):
                     break
         finally:
             self.server_close()

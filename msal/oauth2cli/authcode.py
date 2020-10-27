@@ -38,13 +38,14 @@ def obtain_auth_code(listen_port, auth_uri=None, text=None, request_state=None):
     """
     if text:
         exit_hint = "Visit http://localhost:{p}?auth_code=exit to abort".format(p=listen_port)
-        browse("http://localhost:{p}?{q}".format(
+        logger.warning(exit_hint)
+        page = "http://localhost:{p}?{q}".format(
                   p=listen_port, q=urlencode({
                       "text": text,
                       "link": auth_uri,
                       "exit_hint": exit_hint,
-                  })))
-        logger.warning(exit_hint)
+                  }))
+        browse(page)
     else:
         browse(auth_uri)
     server = AuthcodeRedirectServer(int(listen_port), request_state)

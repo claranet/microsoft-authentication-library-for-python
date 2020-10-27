@@ -12,12 +12,6 @@ from tests.http_client import MinimalHttpClient
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-try:  # Python 3
-    from urllib.parse import urlparse, parse_qs, urlencode
-except ImportError:  # Fall back to Python 2
-    from urllib import urlencode
-
-
 
 def _get_app_and_auth_code(
         client_id,
@@ -30,11 +24,9 @@ def _get_app_and_auth_code(
     app = msal.ClientApplication(
         client_id, client_secret, authority=authority, http_client=MinimalHttpClient())
     redirect_uri = "http://localhost:%d" % port
-    exit_hint = "Visit http://localhost:{p}?code=exit to abort".format(p=port)
     ac = obtain_auth_code(port, auth_uri=app.get_authorization_request_url(
-                        scopes, redirect_uri=redirect_uri),
-                        text="Open this link to sign in. You may use incognito window", **kwargs)
-    logger.warning(exit_hint)
+                        scopes, redirect_uri=redirect_uri, **kwargs),
+                        text="Open this link to sign in. You may use incognito window")
     assert ac is not None
     return (app, ac, redirect_uri)
 

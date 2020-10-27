@@ -25,8 +25,8 @@ def _get_app_and_auth_code(
         client_id, client_secret, authority=authority, http_client=MinimalHttpClient())
     redirect_uri = "http://localhost:%d" % port
     ac = obtain_auth_code(port, auth_uri=app.get_authorization_request_url(
-                        scopes, redirect_uri=redirect_uri, **kwargs),
-                        text="Open this link to sign in. You may use incognito window")
+        scopes, redirect_uri=redirect_uri, **kwargs),
+        text="Open this link to sign in. You may use incognito window")
     assert ac is not None
     return (app, ac, redirect_uri)
 
@@ -400,6 +400,27 @@ class LabBasedTestCase(E2eTestCase):
                 error_description=result.get("error_description")))
         self.assertCacheWorksForUser(result, scope, username=None)
 
+    def _test_acquire_token_interactive(
+            self, client_id=None, authority=None, scope=None,
+            **ignored):
+        assert client_id and authority and scope
+        self.app = msal.ClientApplication(
+            client_id, authority=authority, http_client=MinimalHttpClient())
+        result = self.app.acquire_token_interactive(scope)
+        logger.debug(
+            "%s: cache = %s, id_token_claims = %s",
+            self.id(),
+            json.dumps(self.app.token_cache._cache, indent=4),
+            json.dumps(result.get("id_token_claims"), indent=4),
+            )
+        self.assertIn(
+            "access_token", result,
+            "{error}: {error_description}".format(
+                # Note: No interpolation here, cause error won't always present
+                error=result.get("error"),
+                error_description=result.get("error_description")))
+        self.assertCacheWorksForUser(result, scope, username=None)
+
     def _test_acquire_token_obo(self, config_pca, config_cca):
         # 1. An app obtains a token representing a user, for our mid-tier service
         pca = msal.PublicClientApplication(
@@ -557,6 +578,17 @@ class WorldWideTestCase(LabBasedTestCase):
             password=self.get_lab_user_secret("msidlabb2c"),
             scope=config["defaultScopes"].split(','),
             )
+
+    @unittest.skipIf(os.getenv("TRAVIS"), "Browser automation is not yet implemented")
+    def test_acquire_token_interactive(self):
+        """When prompted, you can manually login using this account:
+
+        # https://msidlab.com/api/user?usertype=cloud
+        username = "..."  # The upn from the link above
+        password="***"  # From https://aka.ms/GetLabUserSecret?Secret=msidlabXYZ
+        """
+        config = self.get_lab_user(usertype="cloud")
+        self._test_acquire_token_interactive(**config)
 
 
 class ArlingtonCloudTestCase(LabBasedTestCase):

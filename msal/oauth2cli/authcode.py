@@ -23,7 +23,7 @@ from .oauth2 import Client
 
 logger = logging.getLogger(__name__)
 
-def obtain_auth_code(listen_port, auth_uri=None):
+def obtain_auth_code(listen_port, auth_uri=None, text=None, request_state=None):
     """This function will start a web server listening on http://localhost:port
     and then you need to open a browser on this device and visit your auth_uri.
     When interaction finishes, this function will return the auth code,
@@ -36,9 +36,18 @@ def obtain_auth_code(listen_port, auth_uri=None):
     :param auth_uri: If provided, this function will try to open a local browser.
     :return: Hang indefinitely, until it receives and then return the auth code.
     """
-    if auth_uri:
+    if text:
+        exit_hint = "Visit http://localhost:{p}?auth_code=exit to abort".format(p=listen_port)
+        browse("http://localhost:{p}?{q}".format(
+                  p=listen_port, q=urlencode({
+                      "text": text,
+                      "link": auth_uri,
+                      "exit_hint": exit_hint,
+                  })))
+        logger.warning(exit_hint)
+    else:
         browse(auth_uri)
-    server = AuthcodeRedirectServer(int(listen_port))
+    server = AuthcodeRedirectServer(int(listen_port), request_state)
     return server.get_auth_code()
 
 
@@ -62,8 +71,9 @@ class AuthCodeReceiver(BaseHTTPRequestHandler):
         #assert self.path.startswith('/THE_PATH_REGISTERED_BY_THE_APP')
         qs = parse_qs(urlparse(self.path).query)
         if qs.get('code'):  # Then store it into the server instance
+            if self.server.state and self.server.state != qs.get('state', [None])[0]:
+                raise ValueError("State does not match")
             self.server.auth_code = qs['code'][0]
-            self.server.state = qs.get('state', [None])[0]
             self._send_full_response('Authentication complete. You can close this window')
             # NOTE: Don't do self.server.shutdown() here. It'll halt the server.
         elif qs.get('text') and qs.get('link'):  # Then display a landing page
@@ -85,9 +95,9 @@ class AuthCodeReceiver(BaseHTTPRequestHandler):
 
 class AuthcodeRedirectServer(HTTPServer):
 
-    def __init__(self, port):
+    def __init__(self, port, request_state):
         HTTPServer.__init__(self, ("", port), AuthCodeReceiver)
-        self.state = None
+        self.state = request_state
         self.auth_code = None
         self.timeout = 300
 
@@ -100,10 +110,12 @@ class AuthcodeRedirectServer(HTTPServer):
                     self.handle_request()
                 except ValueError:
                     break
+                except IOError:  # Python 2 throws an IOError handle timeout closes server
+                    break
         finally:
             self.server_close()
 
-        return self.auth_code, self.state
+        return self.auth_code
 
     def handle_timeout(self):
         """Break the request-handling loop by tearing down the server"""

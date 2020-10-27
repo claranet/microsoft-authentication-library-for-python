@@ -858,11 +858,9 @@ class ClientApplication(object):
             domain_hint=domain_hint,
             claims_challenge=claims_challenge,
             )
-        auth_code, state = obtain_auth_code(_port, auth_uri=auth_url)
+        auth_code = obtain_auth_code(_port, auth_uri=auth_url, request_state=request_state)
         if not auth_code:
             raise TimeoutError("Server timed out")
-        if request_state != state:
-            return ValueError("State does not match")
         return self.acquire_token_by_authorization_code(
             auth_code, scopes, redirect_uri=redirect_uri,
             claims_challenge=claims_challenge)
